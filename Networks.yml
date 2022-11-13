@@ -77,3 +77,68 @@ Resources:
         - 
           Key: Name
           Value: !Sub 'PublicSubnetA'
+  # For the Internet Access in VPC  
+  InternetGateway: 
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+          - Key: Name
+            Value: !Sub 'InternetGateway'
+  VPCGatewayAttachment: 
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+  # Routing table to hold the public routes
+  PublicRouteTableA: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PublicRouteTableA'
+  PublicRoute: 
+    Type: "AWS::EC2::Route"
+    DependsOn: VPCGatewayAttachment
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableA
+  #Associating Public Subnet to the public route table
+  PublicSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PublicRouteTableA
+      SubnetId: !Ref PublicSubnetA
+  
+  PrivateRouteTableA: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PrivateRouteTableA' 
+  PrivateRouteTableB: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PrivateRouteTableB' 
+  PrivateSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA 
+  PrivateSubnetRouteTableAssociationB: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref PrivateSubnetB
