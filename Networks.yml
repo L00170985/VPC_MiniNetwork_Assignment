@@ -190,3 +190,41 @@ Resources:
       FromPort: 22
       ToPort: 22
       SourceSecurityGroupId: !Ref JumpBoxSecurityGroup
+
+  #App server instance security group and its inbound & outbound rules
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Sub 'Internal Security group for App Server'
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref DBSubnetACidr
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref DBSubnetBCidr        
+      Tags:
+        - Key: Name
+          Value: !Sub 'ApplicationSecurityGroup'
+  ApplicationAllowInboundSSHFromJumpBox:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref JumpBoxSecurityGroup
+  ApplicationAllowOutboundICMPToJumpBox:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: ICMP
+      Description: "Allow ICMP traffic"
+      FromPort: -1
+      ToPort: -1
+      DestinationSecurityGroupId: !Ref JumpBoxSecurityGroup 
