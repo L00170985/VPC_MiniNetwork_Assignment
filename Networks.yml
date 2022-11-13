@@ -142,3 +142,31 @@ Resources:
     Properties: 
       RouteTableId: !Ref PrivateRouteTableB
       SubnetId: !Ref PrivateSubnetB
+  
+  #Jump box instance security group and its inbound & outbound rules
+  JumpBoxSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Sub 'Security group for JumpBox host'
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      Tags:
+        - Key: Name
+          Value: !Sub 'JumpBoxSecurityGroup'
+  JumpBoxAllowInboundSSHFromInternet:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+  JumpBoxAllowOutboundAllICMP:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: ICMP
+      FromPort: -1
+      ToPort: -1
+      CidrIp: 0.0.0.0/0
