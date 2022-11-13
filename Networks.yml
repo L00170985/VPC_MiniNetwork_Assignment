@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Custom VPC Creation With Private and Public Subnets"
+
+Parameters: 
+  vpcstack:
+    Description: Name of an active CloudFormation stack that contains the VPC
+      resources.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+    Default: VPCStack
+  # AvailabilityZoneA: 
+    # Default: us-east-1a
+    # Description: "Avaibalbility Zone 1"
+    # Type: String
+  # AvailabilityZoneB: 
+    # Default: us-east-1b
+    # Description: "Avaibalbility Zone 2"
+    # Type: String
+  PrivateSubnetACidr: 
+    Default: 10.0.0.0/24
+    Description: "Private Subnet IP Range"
+    Type: String
+  PublicSubnetACidr: 
+    Default: 10.0.1.0/24
+    Description: "Public Subnet IP Range"
+    Type: String
+  PrivateSubnetBCidr: 
+    Default: 10.0.2.0/24
+    Description: "Private Subnet IP Range"
+    Type: String
+
+Resources:
+  #Private subnet for Web server
+  PrivateSubnetA:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'}
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PrivateSubnetACidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PrivateSubnetA'
+  #Private subnet for App server
+  PrivateSubnetB:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'}
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PrivateSubnetBCidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PrivateSubnetB'
+  PublicSubnetA: 
+    Type: "AWS::EC2::Subnet"
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PublicSubnetACidr
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'PublicSubnetA'
