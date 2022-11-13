@@ -1,0 +1,26 @@
+Parameters: 
+  VPCCidr: 
+    Default: 10.0.0.0/16
+    Description: "CIDR range for our VPC"
+    Type: String
+  VPCName: 
+    Default: DemoCustomVPC
+    Description: "Demo Custom VPC for the learning purpose"
+    Type: String
+
+Resources:
+  DemoVPC: 
+      Type: "AWS::EC2::VPC"
+      Properties: 
+        CidrBlock: !Ref VPCCidr
+        EnableDnsHostnames: true
+        EnableDnsSupport: true
+        Tags: 
+          - 
+            Key: Name
+            Value: !Ref VPCName
+
+Outputs:
+    VPCId:
+      Description: vpc id 
+      Value: !Ref DemoVPC
