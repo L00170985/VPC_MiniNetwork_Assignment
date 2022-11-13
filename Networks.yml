@@ -30,6 +30,15 @@ Parameters:
     Default: 10.0.2.0/24
     Description: "Private Subnet IP Range"
     Type: String
+  DBSubnetACidr: 
+    Default: 10.0.3.0/24
+    Description: "DB Subnet A IP Range"
+    Type: String
+  DBSubnetBCidr: 
+    Default: 10.0.4.0/24
+    Description: "DB Subnet B IP Range"
+    Type: String
+
 
 Resources:
   #Private subnet for Web server
@@ -245,3 +254,38 @@ Resources:
       FromPort: -1
       ToPort: -1
       DestinationSecurityGroupId: !Ref JumpBoxSecurityGroup 
+  
+  #Subnet group to distribute the RDS
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupName: "DBSubnetGroup"
+      DBSubnetGroupDescription: "DB Subnet Group"
+      SubnetIds:
+      - !Ref "DBSubnetA"
+      - !Ref "DBSubnetB"
+  #RDS instance security group and its inbound & outbound rules to App Instance
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        CidrIp: !Ref PrivateSubnetBCidr
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: !Ref PrivateSubnetBCidr
+
+  DBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      EC2VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      DBSecurityGroupIngress:
+        EC2SecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      GroupDescription: Database access
