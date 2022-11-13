@@ -24,8 +24,8 @@ Resources:
             Value: !Ref VPCName
 
 Outputs:
-    VPCId:
-      Description: vpc id 
-      Value: !Ref DemoVPC
-      Export: 
-        Name: !Sub '${AWS::StackName}-VPC'
+  VPCId:
+    Description: vpc id 
+    Value: !Ref DemoVPC
+    Export: 
+      Name: !Sub '${AWS::StackName}-vpcid'
