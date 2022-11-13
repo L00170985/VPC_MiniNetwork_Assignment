@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Custom VPC Creation With Private and Public Subnet"
+
+Outputs: 
+  PrivateSubnetA: 
+    Description: "SubnetId of private subnet A"
+    Value: !Ref PrivateSubnetA
+  PublicSubnetA: 
+    Description: "SubnetId of public subnet A"
+    Value: !Ref PublicSubnetA
+  VPCId: 
+    Description: "vpc id"
+    Value: !Ref DemoVPC
+  BastionPublicIp:
+    Description: 'Bastion Public IP'
+    Value: !Sub 'http://${JumpBoxInstance.PublicIp}'
+    Export:
+      Name: BastionPublicIp
+  ApplicationPrivateIp:
+    Description: 'Application Private IP'
+    Value: !Sub 'http://${ApplicationInstance.PrivateIp}'
+    Export:
+      Name: ApplicationPrivateIp
+Parameters: 
+  AvailabilityZoneA: 
+    Default: us-east-1a
+    Description: "Avaibalbility Zone 1"
+    Type: String
+  PrivateSubnetACidr: 
+    Default: 10.0.0.0/24
+    Description: "Private Subnet IP Range"
+    Type: String
+  PublicSubnetACidr: 
+    Default: 10.0.1.0/24
+    Description: "Public Subnet IP Range"
+    Type: String
+  VPCCidr: 
+    Default: 10.0.0.0/16
+    Description: "CIDR range for our VPC"
+    Type: String
+  VPCName: 
+    Default: DemoCustomVPC
+    Description: "Demo Custom VPC for the learning purpose"
+    Type: String
+  
+Resources: 
+  DemoVPC: 
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref VPCCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - 
+          Key: Name
+          Value: VPCName
+  PrivateSubnetA:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Ref AvailabilityZoneA
+      CidrBlock: !Ref PrivateSubnetACidr
+      Tags: 
+        - 
+          Key: Name
+          Value: '${VPCName}-PrivateSubnetA'
+  PublicSubnetA: 
+    Type: "AWS::EC2::Subnet"
+    Properties: 
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Ref AvailabilityZoneA
+      CidrBlock: !Ref PublicSubnetACidr
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - 
+          Key: Name
+          Value: '${VPCName}-PublicSubnetA'
+  InternetGateway: 
+    Type: "AWS::EC2::InternetGateway"
+  VPCGatewayAttachment: 
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref DemoVPC
+  PublicRouteTable: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref DemoVPC
+  PublicRoute: 
+    Type: "AWS::EC2::Route"
+    DependsOn: VPCGatewayAttachment
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+  PrivateRouteTableA: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref DemoVPC
+  PrivateSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA
+  
+  JumpBoxInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZoneA
+      ImageId: ami-026b57f3c383c2eec
+      InstanceType: t2.micro
+      KeyName: Instance_1
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds:
+        - !Ref JumpBoxSecurityGroup
+      Tags:
+        - Key: Name
+          Value: '${VPCName}-JumpBoxInstance'
+  JumpBoxSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        'Security group for ${VPCName} JumpBox host'
+      VpcId: !Ref DemoVPC
+  JumpBoxAllowInboundSSHFromInternet:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+  JumpBoxAllowOutboundSSHToApplication:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      DestinationSecurityGroupId: !Ref ApplicationSecurityGroup
+  ApplicationInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZoneA
+      ImageId: ami-026b57f3c383c2eec
+      InstanceType: t2.micro
+      KeyName: Instance_1
+      SubnetId: !Ref PrivateSubnetA
+      SecurityGroupIds:
+        - !Ref ApplicationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: '${VPCName}-ApplicationInstance'
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        'Internal Security group for ${VPCName}'
+      VpcId: !Ref DemoVPC
+  ApplicationAllowInboundSSHFromJumpBox:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref JumpBoxSecurityGroup
