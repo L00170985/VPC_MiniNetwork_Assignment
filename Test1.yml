@@ -1,0 +1,506 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Custom VPC Creation With Private and Public Subnets"
+
+Outputs: 
+  MasterJDBCConnectionString:
+      Description: JDBC connection string for the master database
+      Value: !Join ['', ['jdbc:mysql://', !GetAtt [DBInstance, Endpoint.Address], ':',
+          !GetAtt [DBInstance, Endpoint.Port], /, !Ref 'DBName']]
+  PrivateSubnetA: 
+    Description: "SubnetId of private subnet A"
+    Value: !Ref PrivateSubnetA
+  PublicSubnetA: 
+    Description: "SubnetId of public subnet A"
+    Value: !Ref PublicSubnetA
+  VPCId: 
+    Description: "vpc id"
+    Value: !Ref DemoVPC
+  JumpBoxPublicIp:
+    Description: 'JumpBox Public IP'
+    Value: !Sub 'http://${JumpBoxInstance.PublicIp}'
+    Export:
+      Name: JumpBoxIp
+  WebServerPrivateIp:
+    Description: 'WebServer Private IP'
+    Value: !Sub '${WebServerInstance.PrivateIp}'
+    Export:
+      Name: WebServerPrivateIp
+  ApplicationPrivateIp:
+    Description: 'Application Private IP'
+    Value: !Sub '${ApplicationInstance.PrivateIp}'
+    Export:
+      Name: ApplicationPrivateIp
+Parameters: 
+  # LatestImageId:
+  #   Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+  #   Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  # AvailabilityZoneA: 
+  #   Default: us-east-1a
+  #   Description: "Avaibalbility Zone 1"
+  #   Type: String
+  # AvailabilityZoneB: 
+  #   Default: us-east-1b
+  #   Description: "Avaibalbility Zone 2"
+  #   Type: String
+  DBInstanceIdentifier:
+    Type: String
+    Default: "webapp-db"
+  DBName:
+    Default: MyDatabase
+    Description: The database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+  DBUsername:
+    Default: admin
+    NoEcho: 'true'
+    Description: The Database admin account username
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBPassword:
+    Default: password
+    NoEcho: 'true'
+    Description: The Database admin account password
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: must contain only alphanumeric characters.
+  DBClass:
+    Default: db.t2.micro
+    Description: Database instance class
+    Type: String
+    AllowedValues: [db.t2.micro, db.t3.micro, db.t4g.micro]
+    ConstraintDescription: must select a valid database instance type.
+  DBMultiAZ:
+    Description: Multi-AZ master database
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: must be true or false.
+  DBAllocatedStorage:
+    Default: '5'
+    Description: The size of the database (Gb)
+    Type: Number
+    MinValue: '5'
+    MaxValue: '20'
+    ConstraintDescription: must be between 5 and 20GB.
+  PrivateSubnetACidr: 
+    Default: 10.0.0.0/24
+    Description: "Private Subnet IP Range"
+    Type: String
+  PrivateSubnetBCidr: 
+    Default: 10.0.2.0/24
+    Description: "Private Subnet IP Range"
+    Type: String
+  PublicSubnetACidr: 
+    Default: 10.0.1.0/24
+    Description: "Public Subnet IP Range"
+    Type: String
+  DBSubnetACidr: 
+    Default: 10.0.3.0/24
+    Description: "DB Subnet A IP Range"
+    Type: String
+  DBSubnetBCidr: 
+    Default: 10.0.4.0/24
+    Description: "DB Subnet B IP Range"
+    Type: String
+  VPCCidr: 
+    Default: 10.0.0.0/16
+    Description: "CIDR range for our VPC"
+    Type: String
+  VPCName: 
+    Default: DemoCustomVPC
+    Description: "Demo Custom VPC for the learning purpose"
+    Type: String
+  EnvironmentName:
+    Description: Please Specify the Environment where resources are used
+    Type: String
+    AllowedValues: [dev,prod]
+    ConstraintDescription: Must be either Dev or PROD Environment
+Mappings:
+  AWSRegionAMI:
+    us-east-1:
+      alinuxhvm : ami-026b57f3c383c2eec
+    us-east-2:
+      alinuxhvm : ami-089a545a9ed9893b6
+    us-west-1:
+      alinuxhvm : ami-017c001a88dd93847
+    us-west-2:
+      alinuxhvm : ami-0d593311db5abb72b 
+
+  EnvironmentToInstanceType:
+    dev:
+      instanceType: t2.micro
+    prod:
+      instanceType: t2.micro
+
+Resources: 
+  DemoVPC: 
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref VPCCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - 
+          Key: Name
+          Value: !Ref VPCName
+  PrivateSubnetA:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: !Ref DemoVPC
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PrivateSubnetACidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PrivateSubnetA'
+  PrivateSubnetB:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: !Ref DemoVPC
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PrivateSubnetBCidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PrivateSubnetB'
+  DBSubnetA:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: !Ref DemoVPC
+      # AvailabilityZone: !Ref AvailabilityZoneB
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref DBSubnetACidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-DBSubnetA'
+  DBSubnetB:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: !Ref DemoVPC
+      # AvailabilityZone: !Ref AvailabilityZoneB
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref DBSubnetBCidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-DBSubnetB'
+  PublicSubnetA: 
+    Type: "AWS::EC2::Subnet"
+    Properties: 
+      VpcId: !Ref DemoVPC
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref PublicSubnetACidr
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PublicSubnetA'
+  
+  InternetGateway: 
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+          - Key: Name
+            Value: !Sub '${VPCName}-InternetGateway'
+  VPCGatewayAttachment: 
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref DemoVPC
+
+  PublicRouteTableA: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref DemoVPC
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PublicRouteTableA'
+
+  PublicRoute: 
+    Type: "AWS::EC2::Route"
+    DependsOn: VPCGatewayAttachment
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableA
+  
+  PublicSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PublicRouteTableA
+      SubnetId: !Ref PublicSubnetA
+  
+  PrivateRouteTableA: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref DemoVPC
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PrivateRouteTableA' 
+  PrivateRouteTableB: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref DemoVPC
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub '${VPCName}-PrivateRouteTableB' 
+
+  PrivateSubnetRouteTableAssociationA: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA
+  
+  PrivateSubnetRouteTableAssociationB: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref PrivateSubnetB
+  
+  JumpBoxInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      ImageId: !FindInMap [AWSRegionAMI, !Ref AWS::Region , alinuxhvm]
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref EnvironmentName, instanceType]
+      KeyName: Instance_1
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds:
+        - !Ref JumpBoxSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-JumpBoxInstance'
+  JumpBoxSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Sub 'Security group for ${VPCName} JumpBox host'
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-JumpBoxSecurityGroup'
+  JumpBoxAllowInboundSSHFromInternet:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+  JumpBoxAllowInboundICMPFromApplication:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: ICMP
+      Description: "Allow ICMP traffic"
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+  JumpBoxAllowOutboundSSHToWebServer:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      DestinationSecurityGroupId: !Ref WebServerSecurityGroup
+  JumpBoxAllowOutboundSSHToApplication:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+  JumpBoxAllowOutboundAllICMP:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: ICMP
+      FromPort: -1
+      ToPort: -1
+      CidrIp: 0.0.0.0/0
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      ImageId: !FindInMap [AWSRegionAMI, !Ref AWS::Region , alinuxhvm]
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref EnvironmentName, instanceType]
+      KeyName: Instance_1
+      SubnetId: !Ref PrivateSubnetA
+      SecurityGroupIds:
+        - !Ref WebServerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-WebServerInstance'
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Sub 'Internal Security group for ${VPCName}'
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-WebServerSecurityGroup'
+  WebServerAllowInboundSSHFromJumpBox:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref WebServerSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref JumpBoxSecurityGroup
+
+  ApplicationInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      # AvailabilityZone: !Ref AvailabilityZoneB
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      ImageId: !FindInMap [AWSRegionAMI, !Ref AWS::Region , alinuxhvm]
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref EnvironmentName, instanceType]
+      KeyName: Instance_1
+      SubnetId: !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref ApplicationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-ApplicationInstance'
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Sub 'Internal Security group for ${VPCName}'
+      VpcId: !Ref DemoVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref DBSubnetACidr
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref DBSubnetBCidr        
+      Tags:
+        - Key: Name
+          Value: !Sub '${VPCName}-ApplicationSecurityGroup'
+  ApplicationAllowInboundSSHFromJumpBox:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref JumpBoxSecurityGroup
+  ApplicationAllowOutboundICMPToJumpBox:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: -1
+      Description: "Allow ICMP traffic"
+      FromPort: -1
+      ToPort: -1
+      DestinationSecurityGroupId: !Ref JumpBoxSecurityGroup
+  ApplicationAllowOutboundToDBSubnetA:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3306
+      ToPort: 3306
+      CidrIp: !Ref DBSubnetACidr
+  ApplicationAllowOutboundToDBSubnetB:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3306
+      ToPort: 3306
+      CidrIp: !Ref DBSubnetBCidr
+  
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupName: "DBSubnetGroup"
+      DBSubnetGroupDescription: "DB Subnet Group"
+      SubnetIds:
+      - !Ref "DBSubnetA"
+      - !Ref "DBSubnetB"
+  DBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBName: !Ref DBName
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      Engine: MySQL
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: !Ref DBClass
+      # DBSecurityGroups: !Ref DBSecurityGroup
+      VPCSecurityGroups: 
+        - !GetAtt DBEC2SecurityGroup.GroupId
+      AllocatedStorage: !Ref DBAllocatedStorage
+      MultiAZ: !Ref DBMultiAZ
+      # ScalingConfiguration:
+        # AutoPause: true
+        # MaxCapacity: 16
+        # MinCapacity: 2
+        # SecondsUntilAutoPause: 300
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref DemoVPC
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        CidrIp: !Ref PrivateSubnetBCidr
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: !Ref PrivateSubnetBCidr
+  DBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      EC2VpcId: !Ref DemoVPC
+      DBSecurityGroupIngress:
+        EC2SecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      GroupDescription: database access
+  
+
+  

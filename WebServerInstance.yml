@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Custom VPC Creation With Private and Public Subnets"
+Description: "The CloudFormation stack that contains the Web Server resources"
 
 Parameters: 
   NetworkStack:
@@ -17,6 +17,7 @@ Parameters:
   EnvironmentName:
     Description: Please Specify the Environment where resources are used
     Type: String
+    Default: dev
     AllowedValues: [dev,prod]
     ConstraintDescription: Must be either Dev or PROD Environment
 
