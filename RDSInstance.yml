@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Custom VPC Creation With Private and Public Subnets"
+
+Parameters: 
+  NetworkStack:
+    Description: Name of an active CloudFormation stack that contains the Network resources.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+    Default: NetworkStack
+  DBInstanceIdentifier:
+    Type: String
+    Default: "webapp-db"
+  DBName:
+    Default: MyDatabase
+    Description: The database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+  DBUsername:
+    Default: admin
+    NoEcho: 'true'
+    Description: The Database admin account username
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBPassword:
+    Default: password
+    NoEcho: 'true'
+    Description: The Database admin account password
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: must contain only alphanumeric characters.
+  DBClass:
+    Default: db.t2.micro
+    Description: Database instance class
+    Type: String
+    AllowedValues: [db.t2.micro, db.t3.micro, db.t4g.micro]
+    ConstraintDescription: must select a valid database instance type.
+  DBMultiAZ:
+    Description: Multi-AZ master database
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: must be true or false.
+  DBAllocatedStorage:
+    Default: '5'
+    Description: The size of the database (Gb)
+    Type: Number
+    MinValue: '5'
+    MaxValue: '20'
+    ConstraintDescription: must be between 5 and 20GB.
+Resources:
+  DBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBName: !Ref DBName
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      DBSubnetGroupName: {'Fn::ImportValue': !Sub '${NetworkStack}-DBSubnetGroup'}
+      Engine: MySQL
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: !Ref DBClass
+      # DBSecurityGroups: {'Fn::ImportValue': !Sub '${NetworkStack}-DBSecurityGroup'}
+      VPCSecurityGroups: 
+        - !GetAtt {'Fn::ImportValue': !Sub '${NetworkStack}-DBEC2SecurityGroup'}.GroupId
+      AllocatedStorage: !Ref DBAllocatedStorage
+      MultiAZ: !Ref DBMultiAZ
+      # ScalingConfiguration:
+        # AutoPause: true
+        # MaxCapacity: 16
+        # MinCapacity: 2
+        # SecondsUntilAutoPause: 300
