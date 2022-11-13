@@ -22,13 +22,13 @@ Parameters:
     Default: 10.0.0.0/24
     Description: "Private Subnet IP Range"
     Type: String
-  PublicSubnetACidr: 
-    Default: 10.0.1.0/24
-    Description: "Public Subnet IP Range"
-    Type: String
   PrivateSubnetBCidr: 
     Default: 10.0.2.0/24
     Description: "Private Subnet IP Range"
+    Type: String
+  PublicSubnetACidr: 
+    Default: 10.0.1.0/24
+    Description: "Public Subnet IP Range"
     Type: String
   DBSubnetACidr: 
     Default: 10.0.3.0/24
@@ -38,7 +38,6 @@ Parameters:
     Default: 10.0.4.0/24
     Description: "DB Subnet B IP Range"
     Type: String
-
 
 Resources:
   #Private subnet for Web server
@@ -71,6 +70,36 @@ Resources:
         - 
           Key: Name
           Value: !Sub 'PrivateSubnetB'
+  #Subnets for the RDS instance        
+  DBSubnetA:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'}
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      # AvailabilityZone: !Ref AvailabilityZoneB
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref DBSubnetACidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'DBSubnetA'
+  DBSubnetB:
+    Type: "AWS::EC2::Subnet" 
+    Properties: 
+      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+      # AvailabilityZone: !Ref AvailabilityZoneB
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Ref DBSubnetBCidr
+      Tags: 
+        - 
+          Key: Name
+          Value: !Sub 'DBSubnetB'
+  #Public Subnet for JumpBox
   PublicSubnetA: 
     Type: "AWS::EC2::Subnet"
     Properties: 
@@ -151,7 +180,7 @@ Resources:
     Properties: 
       RouteTableId: !Ref PrivateRouteTableB
       SubnetId: !Ref PrivateSubnetB
-  
+
   #Jump box instance security group and its inbound & outbound rules
   JumpBoxSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -188,6 +217,14 @@ Resources:
       FromPort: 22
       ToPort: 22
       DestinationSecurityGroupId: !Ref WebServerSecurityGroup
+  JumpBoxAllowOutboundSSHToApplication:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref JumpBoxSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref ApplicationSecurityGroup
   JumpBoxAllowOutboundAllICMP:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
@@ -253,7 +290,23 @@ Resources:
       Description: "Allow ICMP traffic"
       FromPort: -1
       ToPort: -1
-      DestinationSecurityGroupId: !Ref JumpBoxSecurityGroup 
+      DestinationSecurityGroupId: !Ref JumpBoxSecurityGroup
+  ApplicationAllowOutboundToDBSubnetA:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3306
+      ToPort: 3306
+      CidrIp: !Ref DBSubnetACidr
+  ApplicationAllowOutboundToDBSubnetB:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ApplicationSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3306
+      ToPort: 3306
+      CidrIp: !Ref DBSubnetBCidr
   
   #Subnet group to distribute the RDS
   DBSubnetGroup:
@@ -289,3 +342,45 @@ Resources:
       DBSecurityGroupIngress:
         EC2SecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
       GroupDescription: Database access
+
+Outputs:
+  PrivateSubnetA:
+    Description: PrivateSubnetA for Web Server
+    Value: !Ref PrivateSubnetA
+    Export: 
+      Name: !Sub '${AWS::StackName}-PrivateSubnetA'
+  PrivateSubnetB:
+    Description: PrivateSubnetB for App Server
+    Value: !Ref PrivateSubnetB
+    Export: 
+      Name: !Sub '${AWS::StackName}-PrivateSubnetB'
+  PublicSubnetA:
+    Description: PublicSubnetA for Jumpbox
+    Value: !Ref PublicSubnetA
+    Export: 
+      Name: !Sub '${AWS::StackName}-PublicSubnetA'
+  JumpBoxSecurityGroup:
+    Description: JumpBox Security Group
+    Value: !Ref JumpBoxSecurityGroup
+    Export: 
+      Name: !Sub '${AWS::StackName}-JumpBoxSecurityGroup'
+  WebServerSecurityGroup:
+    Description: Web Server Security Group
+    Value: !Ref WebServerSecurityGroup
+    Export: 
+      Name: !Sub '${AWS::StackName}-WebServerSecurityGroup'
+  ApplicationSecurityGroup:
+    Description: Application Security Group
+    Value: !Ref ApplicationSecurityGroup
+    Export: 
+      Name: !Sub '${AWS::StackName}-ApplicationSecurityGroup'
+  DBSubnetGroup:
+    Description: DBSubnetGroup for RDS
+    Value: !Ref DBSubnetGroup
+    Export: 
+      Name: !Sub '${AWS::StackName}-DBSubnetGroup'
+  DBEC2SecurityGroup:
+    Description: DB EC2 SecurityGroup for the connectivity
+    Value: !Ref DBEC2SecurityGroup
+    Export: 
+      Name: !Sub '${AWS::StackName}-DBEC2SecurityGroup'
