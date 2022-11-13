@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Custom VPC Creation With Private and Public Subnets"
+
+Parameters: 
+  NetworkStack:
+    Description: Name of an active CloudFormation stack that contains the Network resources.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+    Default: NetworkStack
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Default: Instance_1
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+  EnvironmentName:
+    Description: Please Specify the Environment where resources are used
+    Type: String
+    AllowedValues: [dev,prod]
+    ConstraintDescription: Must be either Dev or PROD Environment
+
+Mappings:
+  AWSRegionAMI:
+    us-east-1:
+      alinuxhvm : ami-026b57f3c383c2eec
+    us-east-2:
+      alinuxhvm : ami-089a545a9ed9893b6
+    us-west-1:
+      alinuxhvm : ami-017c001a88dd93847
+    us-west-2:
+      alinuxhvm : ami-0d593311db5abb72b 
+
+  EnvironmentToInstanceType:
+    dev:
+      instanceType: t2.micro
+    prod:
+      instanceType: t2.micro
+
+Resources:
+  JumpBoxInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      # AvailabilityZone: !Ref AvailabilityZoneA
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      ImageId: !FindInMap [AWSRegionAMI, !Ref AWS::Region , alinuxhvm]
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref EnvironmentName, instanceType]
+      KeyName: !Ref KeyName
+      SubnetId: {'Fn::ImportValue': !Sub '${NetworkStack}-PublicSubnetA'}
+      SecurityGroupIds:
+        - {'Fn::ImportValue': !Sub '${NetworkStack}-JumpBoxSecurityGroup'}
+      Tags:
+        - Key: Name
+          Value: 'JumpBoxInstance'
