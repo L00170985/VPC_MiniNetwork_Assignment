@@ -1,14 +1,25 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Custom VPC Creation With Private and Public Subnets"
+Description: "The CloudFormation stack that contains the RDS resources"
 
 Parameters: 
-  NetworkStack:
-    Description: Name of an active CloudFormation stack that contains the Network resources.
+  PrivateSubnetBCidr: 
+    Default: 10.0.2.0/24
+    Description: "Private Subnet IP Range"
     Type: String
-    MinLength: 1
-    MaxLength: 255
-    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
-    Default: NetworkStack
+  NetworkStack:
+      Description: Name of an active CloudFormation stack that contains the Network resources.
+      Type: String
+      MinLength: 1
+      MaxLength: 255
+      AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+      Default: NetworkStack
+  VPCStack:
+      Description: Name of an active CloudFormation stack that contains the VPC resources.
+      Type: String
+      MinLength: 1
+      MaxLength: 255
+      AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+      Default: VPCStack
   DBInstanceIdentifier:
     Type: String
     Default: "webapp-db"
@@ -71,7 +82,7 @@ Resources:
       DBInstanceClass: !Ref DBClass
       # DBSecurityGroups: {'Fn::ImportValue': !Sub '${NetworkStack}-DBSecurityGroup'}
       VPCSecurityGroups: 
-        - !GetAtt {'Fn::ImportValue': !Sub '${NetworkStack}-DBEC2SecurityGroup'}.GroupId
+        - !GetAtt DBEC2SecurityGroup.GroupId
       AllocatedStorage: !Ref DBAllocatedStorage
       MultiAZ: !Ref DBMultiAZ
       # ScalingConfiguration:
@@ -79,3 +90,21 @@ Resources:
         # MaxCapacity: 16
         # MinCapacity: 2
         # SecondsUntilAutoPause: 300
+  #RDS instance security group and its inbound & outbound rules to App Instance
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: {'Fn::ImportValue': !Sub '${VPCStack}-vpcid'} 
+        # - Fn::ImportValue: Fn::Sub: ${VPCStack}-vpcid
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        #CidrIp: !Ref PrivateSubnetBCidr
+        CidrIp: {'Fn::ImportValue': !Sub '${NetworkStack}-PrivateSubnetBCidr'}
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        #CidrIp: !Ref PrivateSubnetBCidr
+        CidrIp: {'Fn::ImportValue': !Sub '${NetworkStack}-PrivateSubnetBCidr'}

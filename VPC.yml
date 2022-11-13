@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Custom VPC creation"
+Description: "The CloudFormation stack that contains the VPC resources"
 
 Parameters: 
   VPCCidr: 

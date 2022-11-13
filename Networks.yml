@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Custom VPC Creation With Private and Public Subnets"
+Description: "The CloudFormation stack that contains the Network resources"
 
 Parameters: 
   vpcstack:
@@ -318,21 +318,21 @@ Resources:
       - !Ref "DBSubnetA"
       - !Ref "DBSubnetB"
   #RDS instance security group and its inbound & outbound rules to App Instance
-  DBEC2SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
-        # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
-      GroupDescription: Open database for access
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: '3306'
-        ToPort: '3306'
-        CidrIp: !Ref PrivateSubnetBCidr
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIp: !Ref PrivateSubnetBCidr
+  # DBEC2SecurityGroup:
+  #   Type: AWS::EC2::SecurityGroup
+  #   Properties:
+  #     VpcId: {'Fn::ImportValue': !Sub '${vpcstack}-vpcid'} 
+  #       # - Fn::ImportValue: Fn::Sub: ${vpcstack}-vpcid
+  #     GroupDescription: Open database for access
+  #     SecurityGroupIngress:
+  #     - IpProtocol: tcp
+  #       FromPort: '3306'
+  #       ToPort: '3306'
+  #       CidrIp: !Ref PrivateSubnetBCidr
+  #     - IpProtocol: tcp
+  #       FromPort: '22'
+  #       ToPort: '22'
+  #       CidrIp: !Ref PrivateSubnetBCidr
 
   DBSecurityGroup:
     Type: AWS::RDS::DBSecurityGroup
@@ -344,6 +344,11 @@ Resources:
       GroupDescription: Database access
 
 Outputs:
+  PrivateSubnetBCidr:
+    Description: PrivateSubnetA for Web Server
+    Value: !Ref PrivateSubnetBCidr
+    Export: 
+      Name: !Sub '${AWS::StackName}-PrivateSubnetBCidr'
   PrivateSubnetA:
     Description: PrivateSubnetA for Web Server
     Value: !Ref PrivateSubnetA
@@ -379,8 +384,8 @@ Outputs:
     Value: !Ref DBSubnetGroup
     Export: 
       Name: !Sub '${AWS::StackName}-DBSubnetGroup'
-  DBEC2SecurityGroup:
-    Description: DB EC2 SecurityGroup for the connectivity
-    Value: !Ref DBEC2SecurityGroup
-    Export: 
-      Name: !Sub '${AWS::StackName}-DBEC2SecurityGroup'
+  # DBEC2SecurityGroup:
+  #   Description: DB EC2 SecurityGroup for the connectivity
+  #   Value: !Ref DBEC2SecurityGroup
+  #   Export: 
+  #     Name: !Sub '${AWS::StackName}-DBEC2SecurityGroup'
