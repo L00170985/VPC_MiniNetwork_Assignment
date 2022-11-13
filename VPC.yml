@@ -24,3 +24,5 @@ Outputs:
     VPCId:
       Description: vpc id 
       Value: !Ref DemoVPC
+      Export: 
+        Name: !Sub '${AWS::StackName}-VPC'
