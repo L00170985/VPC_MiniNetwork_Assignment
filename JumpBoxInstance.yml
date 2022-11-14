@@ -12,7 +12,7 @@ Parameters:
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
     Type: 'AWS::EC2::KeyPair::KeyName'
-    Default: Instance_1
+    # Default: Instance_1
     ConstraintDescription: Must be the name of an existing EC2 KeyPair.
   EnvironmentName:
     Description: Please Specify the Environment where resources are used
