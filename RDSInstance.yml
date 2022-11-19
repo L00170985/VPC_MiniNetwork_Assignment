@@ -32,7 +32,7 @@ Parameters:
     AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
     ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
   DBUsername:
-    Default: admin
+    #Default: admin
     NoEcho: 'true'
     Description: The Database admin account username
     Type: String
@@ -42,7 +42,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and contain only alphanumeric
       characters.
   DBPassword:
-    Default: password
+    #Default: password
     NoEcho: 'true'
     Description: The Database admin account password
     Type: String
@@ -108,3 +108,6 @@ Resources:
         ToPort: '22'
         #CidrIp: !Ref PrivateSubnetBCidr
         CidrIp: {'Fn::ImportValue': !Sub '${NetworkStack}-PrivateSubnetBCidr'}
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-DBSecurityGroup'
